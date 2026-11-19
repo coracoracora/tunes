@@ -150,9 +150,12 @@ impl AudioEngine {
             TunesError::AudioEngineError(format!("Failed to get default config: {}", e))
         })?;
 
-        let sample_rate = config.sample_rate().0 as f32;
+        let sample_rate = config.sample_rate();
         let channels = config.channels() as usize;
-        let device_name = device.name().unwrap_or_else(|_| "Unknown".to_string());
+        let device_name = device
+            .description()
+            .map(|d| d.name().to_string())
+            .unwrap_or_else(|_| "Unknown".to_string());
 
         // Create command channel for communication with audio thread
         let (command_tx, command_rx): (Sender<AudioCommand>, Receiver<AudioCommand>) = unbounded();
@@ -187,7 +190,7 @@ impl AudioEngine {
         // Build the persistent output stream
         let stream = device
             .build_output_stream(
-                &stream_config,
+                stream_config,
                 move |data: &mut [f32], _: &cpal::OutputCallbackInfo| {
                     // Lock only AudioCallbackState (one lock instead of three!)
                     // If mutex is poisoned, output silence and return early
@@ -243,7 +246,7 @@ impl AudioEngine {
                             streaming_sounds,
                             &listener_config_for_stream,
                             &spatial_params_for_stream,
-                            sample_rate,
+                            sample_rate as f32,
                             &playing_states_for_stream,
                         );
                     }
@@ -256,7 +259,7 @@ impl AudioEngine {
                         finished_sounds,
                         listener,
                         spatial,
-                        sample_rate,
+                        sample_rate as f32,
                         channels,
                     );
 
@@ -303,7 +306,7 @@ impl AudioEngine {
             playing_states,
             listener_config,
             spatial_params,
-            sample_rate,
+            sample_rate: sample_rate as f32,
             sample_cache: Arc::new(DashMap::new()),
             _stream: stream,
             device_name,
